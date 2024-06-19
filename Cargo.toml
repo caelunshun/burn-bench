@@ -1,0 +1,14 @@
+[package]
+name = "burn-bench"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+burn = { git = "https://github.com/tracel-ai/burn", default-features = false, features = ["std", "tch", "autodiff"] }
+rand = "0.8"
+rayon = "1"
+rand_distr = "0.4"
+tch = "0.15" # must match burn version
+flume = "0.11"
+mimalloc = { version = "0.1", default-features = false }
+torch-sys = "0.15"
