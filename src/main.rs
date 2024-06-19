@@ -52,10 +52,14 @@ impl<B: Backend> Model<B> {
 
 fn main() {
     tch::maybe_init_cuda();
-    let data = Vec::leak(generate_data());
 
-    do_benchmark::<LibTorch>("f32_gpu", &LibTorchDevice::Cuda(0), data);
-    do_benchmark::<LibTorch<bf16>>("bf16_gpu", &LibTorchDevice::Cuda(0), data);
+    println!("f32: {}", matmul::<LibTorch>());
+    println!("bf16: {}", matmul::<LibTorch<bf16>>());
+
+    //let data = Vec::leak(generate_data());
+
+    //do_benchmark::<LibTorch>("f32_gpu", &LibTorchDevice::Cuda(0), data);
+    //do_benchmark::<LibTorch<bf16>>("bf16_gpu", &LibTorchDevice::Cuda(0), data);
     //do_benchmark::<LibTorch>("f32_cpu", &LibTorchDevice::Cpu, data);
     //do_benchmark::<LibTorch<bf16>>("bf16_cpu", &LibTorchDevice::Cpu, data);
 }
@@ -133,4 +137,34 @@ fn generate_data() -> Vec<([f32; INPUT_SIZE], [f32; OUTPUT_SIZE])> {
             )
         })
         .collect()
+}
+
+const DIM: usize = 16_384;
+
+fn matmul<B: Backend<Device=LibTorchDevice>>() -> String {
+    let device = LibTorchDevice::Cuda(0);
+    let a = random_matrix();
+    let b= random_matrix();
+    let a= Tensor::<B, 2>::from_floats(Data::new(a, Shape::new([DIM, DIM])), &device );
+    let b = Tensor::from_floats(Data::new(b, Shape::new([DIM, DIM])), &device );
+
+    let start = Instant::now();
+    const ITERS: usize = 32;
+    let mut d = Tensor::zeros([DIM, DIM], &device);
+    for _ in 0..ITERS {
+        let c = a.clone().matmul(b.clone());
+        d = d + c;
+    }
+
+    hint::black_box(d.into_data());
+
+    let elapsed = start.elapsed() / ITERS as u32;
+    format!("{:.2?} per iter", elapsed)
+}
+
+fn random_matrix() -> Vec<f32> {
+    (0..crate::DIM * crate::DIM)
+        .into_par_iter()
+        .map(|_| StandardNormal.sample(&mut rand::thread_rng()))
+        .collect::<Vec<_>>()
 }
